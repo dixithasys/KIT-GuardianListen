@@ -265,6 +265,45 @@ async function localAutonomousAgent({ userMessage, userRole, token, user, conver
     }
   }
 
+  // 3B. Registered Academic Subjects
+  else if (
+    msg.includes('registered subject') ||
+    msg.includes('my subject') ||
+    msg.includes('registered course') ||
+    msg.includes('what subjects') ||
+    msg.includes('list subjects') ||
+    msg.includes('how my registered subjects') ||
+    (msg.includes('subject') && !msg.includes('handbook') && !msg.includes('brochure') && !msg.includes('notes') && !msg.includes('doubt'))
+  ) {
+    if (userRole === 'visitor') {
+      spokenResponse = 'Your registered subjects are accessible to enrolled students. Please log in with your student credentials to view your semester courses.';
+      textResponse = spokenResponse;
+    } else if (userRole === 'teacher') {
+      const classes = await executeTool('get_teacher_classes', userRole, { token });
+      toolsExecuted.push({ tool: 'get_teacher_classes', result: classes });
+      spokenResponse = 'You are currently assigned to teach Operating Systems and advise class CSE-2A.';
+      textResponse = '### 👨‍🏫 Faculty Assigned Courses & Classes\n- **CSE-2A** — Class Advisor\n- **CS302** — Operating Systems (Lead Faculty)';
+    } else {
+      const subjects = await executeTool('get_student_subjects', userRole, { token });
+      toolsExecuted.push({ tool: 'get_student_subjects', result: subjects });
+
+      const subList = Array.isArray(subjects) ? subjects : [];
+      spokenResponse = `You are registered for ${subList.length} subjects this semester: ` +
+        subList.map(s => `${s.code} ${s.name}`).join(', ') + '.';
+
+      textResponse = `### 📚 Registered Academic Subjects (Semester 4)\n` +
+        `You are enrolled in **${subList.length} courses** for the current semester:\n\n` +
+        subList.map((s, idx) => `${idx + 1}. **${s.name}** (\`${s.code}\`)`).join('\n') +
+        `\n\n*All subjects are tracked for the mandatory 75% attendance rule.*`;
+
+      uiCard = {
+        type: 'registered_subjects',
+        count: subList.length,
+        subjects: subList,
+      };
+    }
+  }
+
   // 4. Current Attendance Queries vs What-If Simulator (For Students)
   else if (
     msg.includes('attendance') ||
@@ -764,11 +803,65 @@ async function localAutonomousAgent({ userMessage, userRole, token, user, conver
         isAiSpecialization = true;
       }
 
+      const emailMatch = userMessage.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      const phoneMatch = userMessage.match(/(?:\+?91[\-\s]?)?[6-9]\d{9}/);
+      const percentMatch = userMessage.match(/(\d{1,2}(?:\.\d+)?)\s*(?:%|percent)/i);
+      const isSubmittingApp = (msg.includes('submit') || msg.includes('register') || msg.includes('apply')) && (emailMatch || phoneMatch);
       const isAskingFee = msg.includes('fee') || msg.includes('fees') || msg.includes('cost') || msg.includes('tuition') || msg.includes('charge') || msg.includes('how much');
       const isApplying = msg.includes('apply') || msg.includes('application') || msg.includes('radiation') || msg.includes('join') || msg.includes('form') || msg.includes('how do i apply') || msg.includes('how to apply');
 
-      // Case A: Specific course requested for fee or details
-      if (targetCourse) {
+      // Case A1: Direct Admission Application Submission via Voice / Chat
+      if (isSubmittingApp) {
+        let targetCourseCode = targetCourse?.code || 'BTECH-CSE';
+        if (msg.includes('ai') || msg.includes('data science') || msg.includes('aids')) targetCourseCode = 'BTECH-AIDS';
+        else if (msg.includes('ece') || msg.includes('electronics')) targetCourseCode = 'BTECH-ECE';
+        else if (msg.includes('it') || msg.includes('information tech')) targetCourseCode = 'BTECH-IT';
+        else if (msg.includes('mech') || msg.includes('mechanical')) targetCourseCode = 'BTECH-MECH';
+        else if (msg.includes('cse') || msg.includes('computer')) targetCourseCode = 'BTECH-CSE';
+
+        // Extract candidate name
+        let applicantName = 'Prospective Student';
+        const nameMatch = userMessage.match(/(?:for|name is|i am|applicant)\s+([A-Za-z\s]+?)(?:,|\.|phone|email|course|\d|$)/i);
+        if (nameMatch && nameMatch[1].trim().length > 2) {
+          applicantName = nameMatch[1].trim();
+        }
+
+        const email = emailMatch ? emailMatch[1] : 'applicant@example.com';
+        const phone = phoneMatch ? phoneMatch[0].replace(/[\s\-]/g, '') : '9876543210';
+        const percent = percentMatch ? Number(percentMatch[1]) : 80;
+
+        const appRes = await executeTool('submit_admission_application', 'visitor', {
+          params: {
+            full_name: applicantName,
+            phone: phone,
+            email: email,
+            course_code: targetCourseCode,
+            twelfth_percent: percent,
+          }
+        });
+        toolsExecuted.push({ tool: 'submit_admission_application', result: appRes });
+
+        spokenResponse = `Congratulations ${applicantName}! Your admission application for ${targetCourseCode} has been submitted successfully with Application ID ${appRes.id}.`;
+
+        textResponse = `### 🎉 Admission Application Submitted Successfully!\n` +
+          `Your application has been registered in the college system.\n\n` +
+          `- **Application ID:** **#${appRes.id}**\n` +
+          `- **Candidate Name:** **${appRes.full_name || applicantName}**\n` +
+          `- **Course Enrolled:** **${appRes.course_code || targetCourseCode}**\n` +
+          `- **12th PCM Marks:** **${appRes.twelfth_percent || percent}%**\n` +
+          `- **Contact Phone:** \`${appRes.phone || phone}\`\n` +
+          `- **Email:** \`${appRes.email || email}\`\n` +
+          `- **Status:** \`${appRes.status || 'received'}\`\n\n` +
+          `> **Next Steps:** Selected applicants will be invited for document verification and fee payment during the counselling period (2 June – 7 June 2027).\n` +
+          `*Reference: KIT Admissions System (Endpoint POST /v1/admissions/applications)*`;
+
+        uiCard = {
+          type: 'admission_success',
+          application: appRes,
+        };
+      }
+      // Case A2: Specific course requested for fee or details
+      else if (targetCourse) {
         if (isAskingFee) {
           if (isAiSpecialization) {
             spokenResponse = `At KIT, Artificial Intelligence and Machine Learning (AI-ML) is offered under B.Tech Computer Science and Engineering. The annual tuition fee is ₹${targetCourse.annual_fee.toLocaleString()} per year, with a minimum 12th PCM cut-off of ${targetCourse.min_12th_percent} percent. Optional campus hostel with mess is ₹60,000 per year.`;
@@ -814,17 +907,77 @@ async function localAutonomousAgent({ userMessage, userRole, token, user, conver
           uiCard = { type: 'course_detail', course: targetCourse };
         }
       }
-      // Case B: General Application Guidance
+      // Case B: Direct Admission Application Submission via Voice / Chat
       else if (isApplying) {
-        spokenResponse = 'To apply for undergraduate admission at KIT, candidates must have passed 12th standard with Physics, Chemistry, and Mathematics. You can register directly through our admissions form right here, or participate through TNEA counselling.';
-        textResponse = `### 📝 KIT Admissions 2026 Application — How to Apply\n\n` +
-          `**Undergraduate B.Tech Admissions Process:**\n\n` +
-          `1. **Eligibility Check:** Candidates must have passed 12th standard (HSC / CBSE / ISC) with Physics, Chemistry, and Mathematics (PCM).\n` +
-          `2. **Department Minimum Cut-offs:**\n` +
-          courses.map(c => `   - **${c.name}** (\`${c.code}\`): **${c.min_12th_percent}%** PCM | Annual Fee ₹${c.annual_fee.toLocaleString()}`).join('\n') + `\n` +
-          `3. **Required Documents for Verification:** 10th & 12th Marksheets, Transfer Certificate (TC), Conduct Certificate, Community Certificate, and Photo ID.\n` +
-          `4. **Submit Application:** You can submit your application directly using the interactive Admission Form on this portal, or tell me your details to apply.`;
-        uiCard = { type: 'admission_prompt', courses };
+        // Check if user provided details to submit immediately
+        const emailMatch = userMessage.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        const phoneMatch = userMessage.match(/(?:\+?91[\-\s]?)?[6-9]\d{9}/);
+        const percentMatch = userMessage.match(/(\d{1,2}(?:\.\d+)?)\s*(?:%|percent)/i);
+
+        let targetCourseCode = 'BTECH-CSE';
+        if (msg.includes('ai') || msg.includes('data science') || msg.includes('aids')) targetCourseCode = 'BTECH-AIDS';
+        else if (msg.includes('ece') || msg.includes('electronics')) targetCourseCode = 'BTECH-ECE';
+        else if (msg.includes('it') || msg.includes('information tech')) targetCourseCode = 'BTECH-IT';
+        else if (msg.includes('mech') || msg.includes('mechanical')) targetCourseCode = 'BTECH-MECH';
+        else if (msg.includes('cse') || msg.includes('computer')) targetCourseCode = 'BTECH-CSE';
+
+        // Extract candidate name
+        let applicantName = null;
+        const nameMatch = userMessage.match(/(?:for|name is|i am|applicant)\s+([A-Za-z\s]+?)(?:,|\.|phone|email|course|\d|$)/i);
+        if (nameMatch && nameMatch[1].trim().length > 2) {
+          applicantName = nameMatch[1].trim();
+        }
+
+        // If user is submitting application details by voice or text
+        if (applicantName && (emailMatch || phoneMatch || percentMatch)) {
+          const email = emailMatch ? emailMatch[1] : 'applicant@example.com';
+          const phone = phoneMatch ? phoneMatch[0].replace(/[\s\-]/g, '') : '9876543210';
+          const percent = percentMatch ? Number(percentMatch[1]) : 80;
+
+          const appRes = await executeTool('submit_admission_application', 'visitor', {
+            params: {
+              full_name: applicantName,
+              phone: phone,
+              email: email,
+              course_code: targetCourseCode,
+              twelfth_percent: percent,
+            }
+          });
+          toolsExecuted.push({ tool: 'submit_admission_application', result: appRes });
+
+          spokenResponse = `Congratulations ${applicantName}! Your admission application for ${targetCourseCode} has been submitted successfully with Application ID ${appRes.id}.`;
+
+          textResponse = `### 🎉 Admission Application Submitted Successfully!\n` +
+            `Your application has been registered in the college system.\n\n` +
+            `- **Application ID:** **#${appRes.id}**\n` +
+            `- **Candidate Name:** **${appRes.full_name || applicantName}**\n` +
+            `- **Course Enrolled:** **${appRes.course_code || targetCourseCode}**\n` +
+            `- **12th PCM Marks:** **${appRes.twelfth_percent || percent}%**\n` +
+            `- **Contact Phone:** \`${appRes.phone || phone}\`\n` +
+            `- **Email:** \`${appRes.email || email}\`\n` +
+            `- **Status:** \`${appRes.status || 'received'}\`\n\n` +
+            `> **Next Steps:** Selected applicants will be invited for document verification and fee payment during the counselling period (2 June – 7 June 2027).\n` +
+            `*Reference: KIT Admissions System (Endpoint POST /v1/admissions/applications)*`;
+
+          uiCard = {
+            type: 'admission_success',
+            application: appRes,
+          };
+        } else {
+          // Guided Voice Admission Application Prompt
+          spokenResponse = 'I can submit your admission application right now! Please provide your full name, phone number, email address, preferred course, and 12th PCM aggregate percentage.';
+          textResponse = `### 📝 Submit Admission Application via Voice Assistant\n\n` +
+            `You can submit your application directly right now through this voice assistant!\n\n` +
+            `Simply speak or type your details in this format:\n` +
+            `> **"Submit application for [Full Name], [Phone], [Email], [Course Code], [12th %]"**\n\n` +
+            `*Example:*  \n` +
+            `\`Submit application for Ramesh Kumar, 9876543210, ramesh@gmail.com, BTECH-CSE, 85%\`\n\n` +
+            `#### Available Course Codes:\n` +
+            courses.map(c => `- **${c.name}** (\`${c.code}\`): Min cut-off **${c.min_12th_percent}%** | Fee ₹${c.annual_fee.toLocaleString()}`).join('\n') +
+            `\n\n*Alternatively, click "Apply for Admission 2026" at the top of the page.*`;
+
+          uiCard = { type: 'admission_apply_guide', courses };
+        }
       }
       // Case C: General Course List & Fees
       else {
