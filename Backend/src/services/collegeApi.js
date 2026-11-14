@@ -2,7 +2,7 @@ import axios from 'axios';
 import crypto from 'node:crypto';
 
 const BASE_URL = process.env.COLLEGE_API_BASE_URL || 'https://ht.knowvally.com';
-const PARTICIPANT_KEY = process.env.COLLEGE_PARTICIPANT_KEY || '';
+const PARTICIPANT_KEY = process.env.COLLEGE_PARTICIPANT_KEY || 'kit_live_463e38ab1ed65baea26daf4d1ecb7249f6a5cb9b';
 
 // Create Axios Client
 const client = axios.create({

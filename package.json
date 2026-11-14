@@ -1,0 +1,21 @@
+{
+  "name": "kit-guardian-listen",
+  "version": "1.0.0",
+  "description": "KIT GuardianListen - Voice-enabled AI academic and admission assistant powered by Amazon Bedrock",
+  "type": "module",
+  "scripts": {
+    "start": "cd Backend && npm start",
+    "test": "node test/suite.js",
+    "build": "cd Frontend && npm run build"
+  },
+  "keywords": [
+    "voice-assistant",
+    "amazon-bedrock",
+    "rag",
+    "knowledge-base",
+    "higher-education",
+    "kit"
+  ],
+  "author": "dixithasys",
+  "license": "MIT"
+}
