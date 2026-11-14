@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   GraduationCap, 
@@ -11,6 +11,8 @@ import api from '../services/api';
 
 export default function StudentHome() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const convId = searchParams.get('conv');
   const [snapshot, setSnapshot] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -176,6 +178,7 @@ export default function StudentHome() {
 
         <ChatInterface
           role="student"
+          conversationId={convId}
           suggestedQuestions={[
             'How am I doing academically?',
             'What is my CGPA?',

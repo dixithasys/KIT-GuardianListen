@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   CheckSquare, 
@@ -11,6 +11,8 @@ import api from '../services/api';
 
 export default function TeacherHome() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const convId = searchParams.get('conv');
   const [classes, setClasses] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +151,7 @@ export default function TeacherHome() {
 
         <ChatInterface
           role="teacher"
+          conversationId={convId}
           suggestedQuestions={[
             'Show pending leave requests',
             'Which students have requested OD?',

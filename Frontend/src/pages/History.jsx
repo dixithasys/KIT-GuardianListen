@@ -39,8 +39,10 @@ export default function History() {
   const handleOpen = (id) => {
     if (role === 'teacher') {
       navigate(`/teacher?conv=${id}`);
-    } else {
+    } else if (role === 'student') {
       navigate(`/student?conv=${id}`);
+    } else {
+      navigate(`/?conv=${id}`);
     }
   };
 

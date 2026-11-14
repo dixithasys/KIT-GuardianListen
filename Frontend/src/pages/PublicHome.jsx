@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { 
   GraduationCap, 
   FileText, 
@@ -14,6 +14,8 @@ import ChatInterface from '../components/Chat/ChatInterface';
 import api from '../services/api';
 
 export default function PublicHome() {
+  const [searchParams] = useSearchParams();
+  const convId = searchParams.get('conv');
   const [collegeInfo, setCollegeInfo] = useState(null);
   const [courses, setCourses] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -210,6 +212,7 @@ export default function PublicHome() {
 
           <ChatInterface
             role="visitor"
+            conversationId={convId}
             suggestedQuestions={[
               'What documents are required for admission?',
               'What is the admission procedure?',
