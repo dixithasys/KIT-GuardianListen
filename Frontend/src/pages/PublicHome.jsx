@@ -154,8 +154,8 @@ export default function PublicHome() {
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <a
-            href="#courses"
+          <button
+            onClick={() => handleApplyClick('BTECH-CSE')}
             style={{
               padding: '12px 28px',
               borderRadius: 'var(--radius-md)',
@@ -167,6 +167,26 @@ export default function PublicHome() {
               alignItems: 'center',
               gap: 8,
               boxShadow: '0 4px 15px var(--accent-glow)',
+              cursor: 'pointer',
+              border: 'none',
+            }}
+          >
+            <FileText size={18} /> Apply for Admission 2026
+          </button>
+
+          <a
+            href="#courses"
+            style={{
+              padding: '12px 28px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-surface)',
+              color: 'var(--text-primary)',
+              fontWeight: 600,
+              fontSize: 15,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              border: '1px solid var(--border)',
             }}
           >
             <GraduationCap size={18} /> View Courses & Fees
